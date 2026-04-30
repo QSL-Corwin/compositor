@@ -161,6 +161,8 @@ select.fi option{background:var(--navy);color:var(--cream)}
 textarea.fi{resize:vertical;line-height:1.6;font-family:var(--body)}
 textarea.fi.mono{font-family:var(--mono);font-size:12px;line-height:1.7}
 .fi::placeholder{color:var(--cream-faint)}
+input[type="date"].fi::-webkit-calendar-picker-indicator{filter:invert(1) brightness(0.8);cursor:pointer;opacity:0.85}
+input[type="date"].fi::-webkit-calendar-picker-indicator:hover{opacity:1}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
 .fgrid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;margin-bottom:11px}
 .char-c{font-family:var(--mono);font-size:10px;color:var(--cream-faint);text-align:right;margin-top:4px;letter-spacing:0.05em}
@@ -937,7 +939,7 @@ topic: short-topic-slug
 ## Decisions
 - Things we chose. Brief, declarative.
 
-## Open Threads
+## Threads
 - Things left unresolved or that need follow-up.
 
 ## Constraints
@@ -946,11 +948,17 @@ topic: short-topic-slug
 ## Insights
 - Useful observations or learnings worth remembering.
 
+## Brainstorming
+- Ideas explored, options weighed, directions considered.
+
+## Knowledge
+- Facts, references, or domain knowledge worth retaining.
+
 ## Actions
 - Things I committed to doing, with owner if not me.
 
-## Prompts
-- Reusable prompts that produced useful output.
+## Questions
+- Open questions to investigate or revisit later.
 \`\`\`
 
 Keep it tight. Single-line bullets. Skip empty sections. No commentary outside the code block.`;
@@ -966,8 +974,10 @@ const DEFAULTS = {
     {key:'thread', name:'Open Thread', color:'#d49a4c'},
     {key:'constraint', name:'Constraint', color:'#b88aae'},
     {key:'insight', name:'Insight', color:'#7d9bc4'},
+    {key:'brainstorming', name:'Brainstorming', color:'#d49a4c'},
+    {key:'knowledge', name:'Knowledge', color:'#7d9bc4'},
     {key:'action', name:'Action', color:'#c9a84c'},
-    {key:'prompt', name:'Prompt', color:'#9ab896'},
+    {key:'questions', name:'Questions', color:'#b88aae'},
   ],
   flags: [
     {key:'followup', name:'Follow up', color:'#d49a4c'},
@@ -975,6 +985,7 @@ const DEFAULTS = {
     {key:'pin', name:'Pin', color:'#b88aae'},
     {key:'share', name:'Share', color:'#7da87d'},
     {key:'reuse', name:'Reuse', color:'#9ab896'},
+    {key:'deep-research', name:'Deep Research', color:'#b88aae'},
   ],
   sources: [
     {key:'claude', name:'Claude', color:'#c97a72'},
@@ -982,6 +993,8 @@ const DEFAULTS = {
     {key:'grok', name:'Grok', color:'#7a8aa0'},
     {key:'gemini', name:'Gemini', color:'#7d9bc4'},
     {key:'manual', name:'Manual', color:'#b88aae'},
+    {key:'claude-code', name:'Claude Code', color:'#c9a84c'},
+    {key:'codex', name:'Codex', color:'#9ab896'},
   ],
   userTags: [],
   promptText: DEFAULT_PROMPT,
@@ -1232,6 +1245,16 @@ function parseSession(){
     if(confidence < 30 && result.records.length >= 3) confidence = 30;
   }
 
+  // ── DIAGNOSTIC LOGGING (temporary) ──
+  console.log('[parseSession] content length:', content.length);
+  console.log('[parseSession] parseText result:', JSON.stringify({
+    recordCount: result.records.length,
+    structuredCount: result._structuredCount,
+    headerCount: result._headerCount,
+    firstFiveRecords: result.records.slice(0,5)
+  }, null, 2));
+  console.log('[parseSession] computed confidence:', confidence);
+
   // Stage parsed result for review
   parsed = {
     subject,
@@ -1474,14 +1497,9 @@ function commitReview(){
 function parseText(text){
   const result = {records:[], _structuredCount:0, _headerCount:0};
 
-  // Strip code fence wrapper ONLY if it wraps the entire document
-  // (e.g. AI summary returned as ```md ... ```). Don't accidentally
-  // strip embedded code blocks that appear inside the content.
-  const trimmed = text.trim();
-  if(trimmed.startsWith('```') && trimmed.endsWith('```')){
-    const fenceMatch = trimmed.match(/^```(?:md|markdown)?\s*\n?([\s\S]*?)\n?```\s*$/);
-    if(fenceMatch) text = fenceMatch[1];
-  }
+  // Strip code fence wrapper if present
+  const fenceMatch = text.match(/```(?:md|markdown)?\s*\n?([\s\S]*?)\n?```/);
+  if(fenceMatch) text = fenceMatch[1];
 
   // Strip YAML frontmatter
   text = text.replace(/^---[\s\S]*?---\n/, '');
